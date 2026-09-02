@@ -1,0 +1,12 @@
+streamlit
+geopandas
+shapely
+rasterstats
+rasterio
+pandas
+numpy
+openpyxl
+matplotlib
+leafmap
+streamlit-folium
+folium
