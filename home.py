@@ -1,7 +1,7 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="hydroC2m Geospatial Dashboard",
+    page_title="Geospatial Dashboard",
     page_icon="🌍",
     layout="wide"
 )
@@ -17,7 +17,7 @@ for key in state_keys:
 # ---------------------------------------------------------
 # MAIN LANDING PAGE CONTENT
 # ---------------------------------------------------------
-st.title("🌍 hydroC2m Geospatial Dashboard")
+st.title("🌍 Geospatial Dashboard")
 st.markdown("### Automated Grid Generation & Zonal Statistics Pipeline")
 
 st.markdown("""
