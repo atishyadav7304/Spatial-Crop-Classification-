@@ -1,56 +1,50 @@
 import streamlit as st
 
-# Configure the main page layout and metadata
 st.set_page_config(
-    page_title="Geospatial Dashboard",
+    page_title="hydroC2m Geospatial Dashboard",
     page_icon="🌍",
     layout="wide"
 )
 
 # ---------------------------------------------------------
-# INITIALIZE SHARED MEMORY (Crucial for Multi-Page Apps)
+# INITIALIZE SHARED MEMORY
 # ---------------------------------------------------------
-state_keys = [
-    'study_gdf', 
-    'clipped_centroids', 
-    'grid_gdf', 
-    'pop_done', 
-    'crop_done', 
-    'id_col'
-]
-
+state_keys = ['study_gdf', 'clipped_centroids', 'grid_gdf', 'pop_done', 'crop_done', 'id_col']
 for key in state_keys:
     if key not in st.session_state:
         st.session_state[key] = None
 
 # ---------------------------------------------------------
-# HOME PAGE UI
+# MAIN LANDING PAGE CONTENT
 # ---------------------------------------------------------
-st.title("🌍 Geospatial Analysis Dashboard")
-st.markdown("### Land & Water Resources Engineering Spatial Tool")
+st.title("🌍 hydroC2m Geospatial Dashboard")
+st.markdown("### Automated Grid Generation & Zonal Statistics Pipeline")
 
-st.write(
-    "Welcome to the multi-page spatial analysis hub. This application is designed to handle "
-    "end-to-end geospatial workflows including fishnet grid generation, spatial clipping, "
-    "and continuous/categorical zonal statistics."
-)
+st.markdown("""
+Welcome to the spatial processing dashboard. This tool streamlines the extraction of continuous population totals 
+and categorical crop classification fractions across gapless grid meshes for agricultural and hydrological analysis.
 
-st.info("👈 **Select a step from the sidebar to begin processing your data.**")
+---
 
-# Dashboard Overview
-st.markdown("---")
-st.markdown("**Pipeline Overview:**")
+### 📋 Workflow Steps:
+1. **Step 1: Upload Command Area** — Upload study area boundary shapefiles and verify geometry.
+2. **Step 2: Centroids & Grids** — Generate gapless Voronoi mesh grids centered on point attributes and clipped to study area boundaries.
+3. **Step 3: Population Stats** — Calculate continuous pixel sums (Total Population) per grid cell.
+4. **Step 4: Crop Fractions** — Compute categorical crop area fractions and export final Shapefiles and Excel reports.
+""")
 
-col1, col2, col3, col4 = st.columns(4)
+st.divider()
 
-with col1:
-    st.success("**Step 1**\n\nUpload and preview the Command Area (Study Area) boundary.")
-with col2:
-    st.warning("**Step 2**\n\nClip centroids to the study area and generate a 5km Fishnet Grid.")
-with col3:
-    st.info("**Step 3**\n\nExtract continuous zonal statistics (Total Population) for each grid.")
-with col4:
-    st.error("**Step 4**\n\nExtract categorical zonal statistics (Crop Area Fractions) for each grid.")
+# ---------------------------------------------------------
+# SAMPLE DATA DOWNLOAD SECTION
+# ---------------------------------------------------------
+st.subheader("🧪 Sample Datasets for Testing")
+st.write("If you don't have your own spatial data, you can download a complete set of trial shapefiles and rasters below to test the workflow.")
 
-st.markdown("---")
-st.caption("Ensure your `.shp` uploads always include the corresponding `.shx`, `.dbf`, and `.prj` files to maintain accurate coordinate reference systems (CRS) across the pipeline.")
+# PASTE YOUR GOOGLE DRIVE LINK IN THE QUOTES BELOW
+drive_link = "https://drive.google.com/drive/folders/1WcvOUwSM6pK-tozNW2yZLnCvw2SUkLA3?usp=drive_link"
+
+st.link_button("☁️ Download Sample Data from Google Drive", drive_link, type="primary")
+
+st.divider()
+st.info("👈 Use the left sidebar to navigate to **Step 1** to begin processing.")
