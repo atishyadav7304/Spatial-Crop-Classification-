@@ -9,7 +9,7 @@ import zipfile
 import io
 import leafmap.foliumap as leafmap
 
-st.set_page_config(page_title="Step 4: Crop Fractions", layout="wide")
+st.set_page_config(page_title="Step 5: Seasonal Crop Fractions", layout="wide")
 
 # ---------------------------------------------------------
 # INITIALIZE SHARED MEMORY
@@ -45,24 +45,43 @@ def create_shapefile_zip(gdf, filename):
 # ---------------------------------------------------------
 # UI & PROCESSING
 # ---------------------------------------------------------
-st.title("Step 4: Crop Area Fractions & Final Export")
+st.title("Step 5: Seasonal Crop Area Fractions & Final Export")
 
-# Fallback in case Step 3 was skipped, use Step 2 grid if available
+# Fallback to get the most updated grid geometries (prefer pop_done if available)
 base_gdf = st.session_state.get('pop_done')
 if base_gdf is None:
     base_gdf = st.session_state.get('grid_gdf')
 
 if base_gdf is None:
-    st.warning("⚠️ Please complete Step 2 (Grid Generation) and Step 3 (Population) before proceeding.")
+    st.warning("⚠️ Please complete Grid Generation (Step 2) and Population (Step 3) before proceeding.")
 else:
-    st.write("Upload your categorical crop classification raster. The tool will calculate the spatial fraction of each crop class within every 5km grid.")
+    st.write("Upload your categorical crop classification rasters for different seasons. The tool will calculate the spatial fraction of each crop class assuming a constant 5km x 5km grid area.")
 
-    crop_raster = st.file_uploader("Upload Crop Raster (.tif)", type=["tif"])
+    num_seasons = st.number_input("How many seasonal rasters do you want to upload?", min_value=1, max_value=10, value=1, step=1)
     
-    if crop_raster:
-        if st.button("Calculate Crop Fractions"):
-            with st.spinner("Extracting categorical statistics and computing fractions..."):
-                grid_gdf = base_gdf.copy()
+    seasonal_inputs = []
+    st.markdown("#### 🌾 Define Seasons and Upload Rasters")
+    
+    for i in range(num_seasons):
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            season_name = st.text_input(f"Season {i+1} Name (e.g., 2022-23 Rabi):", value=f"Season_{i+1}", key=f"name_{i}")
+        with col2:
+            raster_file = st.file_uploader(f"Upload Crop Raster for {season_name} (.tif)", type=["tif"], key=f"file_{i}")
+            
+        if raster_file is not None:
+            seasonal_inputs.append((season_name, raster_file))
+            
+    st.divider()
+    
+    if len(seasonal_inputs) > 0 and st.button("Calculate Seasonal Crop Fractions"):
+        with st.spinner("Extracting categorical statistics and computing fractions for all seasons..."):
+            grid_gdf = base_gdf.copy()
+            
+            # Constant area for a 5km x 5km grid in square meters
+            FIXED_GRID_AREA_SQM = 5000 * 5000  # 25,000,000 sq meters
+            
+            for season_name, crop_raster in seasonal_inputs:
                 crop_path = save_uploaded_raster(crop_raster)
                 
                 # 1. Get pixel resolution using rasterio
@@ -70,26 +89,29 @@ else:
                     transform = src.transform
                     pixel_area_sq_m = abs(transform[0] * transform[4])
                 
-                # 2. Run categorical zonal stats
+                # Calculate the exact number of pixels that fit in a 5x5 km grid
+                total_pixels_5km = FIXED_GRID_AREA_SQM / pixel_area_sq_m
+                
+                # 2. Run categorical zonal stats (this returns the pixel counts per class)
                 stats = zonal_stats(grid_gdf, crop_path, categorical=True)
                 
-                # 3. Calculate actual area of each grid in metric projection
-                areas_sqm = grid_gdf.to_crs(grid_gdf.estimate_utm_crs()).geometry.area
-                
-                # 4. Compute fractions
+                # 3. Compute fractions based on the fixed 5x5km pixel count
                 for i, stat in enumerate(stats):
-                    grid_area = areas_sqm.iloc[i]
                     for val, count in stat.items():
-                        fraction = (count * pixel_area_sq_m) / grid_area
-                        grid_gdf.at[grid_gdf.index[i], f'Crop_{val}_Frac'] = round(fraction, 4)
-                
-                # Fill missing crop classes in grids where they don't appear with 0
-                grid_gdf = grid_gdf.fillna(0)
-                st.session_state['crop_done'] = grid_gdf
+                        # Fraction = (pixels of crop in grid) / (total pixels in 5x5km grid)
+                        fraction = count / total_pixels_5km
+                        
+                        # Replace spaces with underscores for clean column names
+                        clean_season = season_name.replace(" ", "_")
+                        grid_gdf.at[grid_gdf.index[i], f'{clean_season}_C{val}_Frac'] = round(fraction, 4)
+            
+            # Fill missing crop classes in grids where they don't appear with 0
+            grid_gdf = grid_gdf.fillna(0)
+            st.session_state['crop_done'] = grid_gdf
 
 # Display Results & Final Exports
 if st.session_state.get('crop_done') is not None:
-    st.success("Crop fractions calculated! Final dataset is ready.")
+    st.success("Seasonal crop fractions calculated! Final dataset is ready.")
     df_final = st.session_state['crop_done']
     
     view_mode = st.radio("Choose Preview Mode:", ["Interactive Map", "Attribute Table"], horizontal=True)
@@ -104,7 +126,7 @@ if st.session_state.get('crop_done') is not None:
             study_display = st.session_state['study_gdf'].to_crs(epsg=4326)
             m.add_gdf(study_display, layer_name="Command Area", fill_colors=["none"], weight=2)
             
-        # Add grids - clicking them will reveal Population and Crop fractions
+        # Add grids - clicking them will reveal Population, Demand, and Crop fractions
         m.add_gdf(display_gdf, layer_name="Analyzed Grids", fill_colors=["green"], info_mode="on_click")
         m.to_streamlit(height=500)
         
@@ -115,7 +137,7 @@ if st.session_state.get('crop_done') is not None:
     
     st.divider()
     st.markdown("### Final Exports")
-    st.write("Download your fully processed dataset containing grid geometries, population totals, and crop fractions.")
+    st.write("Download your fully processed dataset containing grid geometries, population totals, domestic water demand, and seasonal crop fractions.")
     
     col1, col2 = st.columns(2)
     
