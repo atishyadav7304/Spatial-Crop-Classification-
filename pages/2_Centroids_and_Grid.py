@@ -13,7 +13,8 @@ st.set_page_config(page_title="Step 2: Centroids & Grids", layout="wide")
 # ---------------------------------------------------------
 # INITIALIZE SHARED MEMORY
 # ---------------------------------------------------------
-state_keys = ['study_gdf', 'clipped_centroids', 'grid_gdf', 'pop_done', 'crop_done', 'id_col']
+# Added 'base_grids_gdf' to store the unclipped squares for exact population math
+state_keys = ['study_gdf', 'clipped_centroids', 'grid_gdf', 'base_grids_gdf', 'pop_done', 'crop_done', 'id_col']
 for key in state_keys:
     if key not in st.session_state:
         st.session_state[key] = None
@@ -76,7 +77,6 @@ else:
                     native_centroids.set_crs(epsg=4326, inplace=True)
                 
                 # 2. Convert geographic coordinates to UTM ONLY IF NECESSARY
-                # If they are already metric (which is likely if they spaced perfectly), keep the native CRS.
                 process_crs = native_centroids.crs
                 if process_crs.is_geographic:
                     process_crs = native_centroids.estimate_utm_crs()
@@ -93,7 +93,6 @@ else:
                 cents_filtered = gpd.clip(cents_to_process, clip_gdf)
                 
                 # 4. Generate the 5km Grid strictly in the native/metric geometry BEFORE projecting
-                # This guarantees that if the points were perfectly spaced, the grids will perfectly touch.
                 half = 2500.0
                 grid_polys = [
                     box(geom.x - half, geom.y - half, geom.x + half, geom.y + half) 
@@ -106,11 +105,15 @@ else:
                 grid_aligned = perfect_grid_gdf.to_crs(study_gdf.crs)
                 cents_aligned = cents_filtered.to_crs(study_gdf.crs)
                 
-                # 6. Clip the grids directly against the precise boundary of the Command Area
+                # --- CRITICAL FIX FOR POPULATION MATH ---
+                # Save the UNCLIPPED full squares to memory so Step 3 can use them for exact population calculation
+                st.session_state['base_grids_gdf'] = grid_aligned
+                
+                # 6. Clip the grids directly against the precise boundary of the Command Area for mapping aesthetics
                 clipped_grids = gpd.clip(grid_aligned, study_gdf)
                 clipped_cents = gpd.clip(cents_aligned, study_gdf)
                 
-                # Save results
+                # Save mapping results
                 st.session_state['clipped_centroids'] = clipped_cents
                 st.session_state['grid_gdf'] = clipped_grids
                 st.session_state['id_col'] = id_col
@@ -150,5 +153,5 @@ if st.session_state.get('grid_gdf') is not None:
         cent_zip = create_shapefile_zip(st.session_state['clipped_centroids'], "filtered_centroids")
         st.download_button("Download Filtered Centroids (ZIP)", data=cent_zip, file_name="filtered_centroids.zip")
     with col2:
-        grid_zip = create_shapefile_zip(st.session_state['grid_gdf'], "gapless_grids")
-        st.download_button("Download Gapless Grids (ZIP)", data=grid_zip, file_name="gapless_grids.zip")
+        grid_zip = create_shapefile_zip(st.session_state['grid_gdf'], "clipped_gapless_grids")
+        st.download_button("Download Clipped Gapless Grids (ZIP)", data=grid_zip, file_name="clipped_gapless_grids.zip")
