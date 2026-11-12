@@ -60,18 +60,20 @@ else:
                 grid_gdf = st.session_state['grid_gdf'].copy()
                 pop_path = save_uploaded_raster(pop_raster)
                 
-                # --- NEW FIX: Align CRS before zonal stats to prevent memory crash ---
+                # --- ALIGNED POPULATION CALCULATION METHOD ---
+                # This calculation method is now perfectly synced with the NHM-I script
                 with rasterio.open(pop_path) as src:
                     raster_crs = src.crs
                 
-                # Reproject a temporary copy of the grid to match the raster perfectly
+                # Reproject the grid to match the raster CRS
                 grid_for_stats = grid_gdf.to_crs(raster_crs)
                 
-                # Execute zonal statistics on the perfectly aligned geometries
+                # Execute zonal statistics
                 stats = zonal_stats(grid_for_stats, pop_path, stats="sum")
                 
-                # Extract sums and handle potential None values (grids outside raster extent)
+                # Extract sums and handle None values
                 grid_gdf['Population'] = [s['sum'] if s['sum'] else 0 for s in stats]
+                # ----------------------------------------------
                 
                 st.session_state['pop_done'] = grid_gdf
 
